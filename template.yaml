@@ -1,0 +1,442 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Property Management System Backend
+
+Resources: 
+  PMSApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: PMSApi
+      StageName: Prod
+
+  TenantsTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: tenants
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  PropertiesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: properties
+      AttributeDefinitions:
+        - AttributeName: propertyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: propertyId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  LeasesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: leases
+      AttributeDefinitions:
+        - AttributeName: leaseId
+          AttributeType: S
+        - AttributeName: tenantId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: leaseId
+          KeyType: HASH
+        - AttributeName: tenantId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  InvoicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: invoices
+      AttributeDefinitions:
+        - AttributeName: invoiceId
+          AttributeType: S
+        - AttributeName: tenantId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: invoiceId
+          KeyType: HASH
+        - AttributeName: tenantId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  PaymentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: payments
+      AttributeDefinitions:
+        - AttributeName: paymentId
+          AttributeType: S
+        - AttributeName: invoiceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: paymentId
+          KeyType: HASH
+        - AttributeName: invoiceId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  CleaningServiceRequestsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: cleaning_service_requests
+      AttributeDefinitions:
+        - AttributeName: requestId
+          AttributeType: S
+        - AttributeName: tenantId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: requestId
+          KeyType: HASH
+        - AttributeName: tenantId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  MaintenanceServiceRequestsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: maintenance_service_requests
+      AttributeDefinitions:
+        - AttributeName: requestId
+          AttributeType: S
+        - AttributeName: tenantId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: requestId
+          KeyType: HASH
+        - AttributeName: tenantId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST    
+
+  LandlordUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: LandlordUserPool
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+      UsernameAttributes:
+        - email
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: false
+  
+  LandlordUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: LandlordUserPoolClient
+      UserPoolId: !Ref LandlordUserPool
+      GenerateSecret: false
+
+  AddPropertyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: properties/add/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: properties
+      Events:
+        AddProperty:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /properties
+            Method: post
+
+  UpdatePropertyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: update_property.app.lambda_handler
+      Runtime: python3.12
+      CodeUri: properties/update/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: properties
+      Events:
+        UpdateProperty:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /properties
+            Method: put              
+
+  DeletePropertyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: properties/delete/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: properties
+      Events:
+        DeleteProperty:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /properties/{propertyId}
+            Method: delete
+
+  GetPropertyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: properties/get/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: properties
+      Events:
+        GetProperty:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /properties/{propertyId}
+            Method: get
+
+  GetPropertiesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: properties/get-all/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: properties
+      Events:
+        GetProperties:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /properties
+            Method: get
+
+  AddTenantFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: tenants/add/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: tenants
+      Events:
+        AddTenant:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /tenants
+            Method: post
+
+  DeleteTenantFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: tenants/delete/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: tenants
+      Events:
+        DeleteTenant:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /tenants/{tenantId}
+            Method: delete
+
+  GetTenantFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: tenants/get/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: tenants
+      Events:
+        GetTenant:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /tenants/{tenantId}
+            Method: get
+
+  GetAllTenantsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: tenants/get-all/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: tenants
+      Events:
+        GetAllTenants:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /tenants
+            Method: get
+
+  UpdateTenantFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: tenants/update/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: tenants
+      Events:
+        UpdateTenant:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /tenants
+            Method: put          
+
+
+  AddCleaningServiceRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: cleaning_requests/add/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: cleaning_service_requests
+      Events:
+        AddCleaningServiceRequest:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /cleaning
+            Method: post
+   
+  DeleteCleaningServiceRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: cleaning_requests/delete/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: cleaning_service_requests
+      Events:
+        DeleteCleaningServiceRequest:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /cleaning/{requestId}
+            Method: delete
+
+  GetAllCleaningRequestsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: cleaning_requests/get-all/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: cleaning_service_requests
+      Events:
+        GetAllCleaningRequests:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /cleaning
+            Method: get
+
+  GetCleaningRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: cleaning_requests/get/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: cleaning_service_requests
+      Events:
+        GetAllCleaningRequests:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /cleaning/{requestId}
+            Method: get
+
+  UpdateCleaningRequestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      CodeUri: cleaning_requests/update/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: cleaning_service_requests
+      Events:
+        UpdateTenant:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PMSApi
+            Path: /cleaning
+            Method: put
+
+
+
+   
+
+Outputs:
+  UserPoolId:
+    Description: The ID of the User Pool
+    Value: !Ref LandlordUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+
+  UserPoolClientId:
+    Description: The ID of the User Pool Client
+    Value: !Ref LandlordUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  TenantsTable:
+    Description: "Tenants DynamoDB Table"
+    Value: !Ref TenantsTable
+
+  PropertiesTable:
+    Description: "Properties DynamoDB Table"
+    Value: !Ref PropertiesTable
+
+  LeasesTable:
+    Description: "Leases DynamoDB Table"
+    Value: !Ref LeasesTable
+
+  InvoicesTable:
+    Description: "Invoices DynamoDB Table"
+    Value: !Ref InvoicesTable
+
+  PaymentsTable:
+    Description: "Payments DynamoDB Table"
+    Value: !Ref PaymentsTable
+
+  CleaningServiceRequestsTable:
+    Description: "Cleaning Service Requests DynamoDB Table"
+    Value: !Ref CleaningServiceRequestsTable
+
+  MaintenanceServiceRequestsTable:
+    Description: "Maintenance Service Requests DynamoDB Table"
+    Value: !Ref MaintenanceServiceRequestsTable    
+      
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${PMSApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+
+
